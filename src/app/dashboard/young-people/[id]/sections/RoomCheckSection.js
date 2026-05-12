@@ -21,6 +21,8 @@ const REASONS = [
   'Maintenance Check', 'Welfare Check', 'Other',
 ]
 
+const KEYWORKERS = ['Admin Accord', 'Key Worker 1', 'Key Worker 2', 'Manager']
+
 const NAV_ITEMS = [
   'Primary Details', 'Search Details', 'Actions and Outcome',
   'Sanctions or Consequences', 'Monitoring', 'Comments',
@@ -67,6 +69,69 @@ function TextArea({ label, value, onChange, rows = 8, placeholder }) {
         placeholder={placeholder}
         sx={{ '& .MuiOutlinedInput-root': { fontSize: 13, '&.Mui-focused fieldset': { borderColor: PURPLE } } }}
       />
+    </Box>
+  )
+}
+
+function SearchDetails({ form, set }) {
+  const parsed = (() => {
+    try {
+      const p = JSON.parse(form.searchDetails || '{}')
+      return typeof p === 'object' && p !== null ? p : { staffPresent: '', othersPresent: '', whatFound: '' }
+    } catch {
+      return { staffPresent: '', othersPresent: form.searchDetails || '', whatFound: '' }
+    }
+  })()
+
+  function update(key, val) {
+    set('searchDetails', JSON.stringify({ ...parsed, [key]: val }))
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {/* Staff present | Others present */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.5 }}>
+        <Box>
+          <Typography variant="caption" sx={{ color: PINK, fontWeight: 600, fontSize: 12, display: 'block', mb: 0.8 }}>
+            Staff present during search
+          </Typography>
+          <FormControl fullWidth size="small">
+            <Select
+              value={parsed.staffPresent || ''} onChange={e => update('staffPresent', e.target.value)}
+              displayEmpty
+              sx={{ fontSize: 13, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PURPLE } }}
+            >
+              <MenuItem value=""><em>Select Staff Member</em></MenuItem>
+              {KEYWORKERS.map(k => <MenuItem key={k} value={k} sx={{ fontSize: 13 }}>{k}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+        <Box>
+          <Typography variant="caption" sx={{ color: PINK, fontWeight: 600, fontSize: 12, display: 'block', mb: 0.8 }}>
+            Others present during search
+          </Typography>
+          <TextField
+            multiline rows={4} fullWidth size="small"
+            value={parsed.othersPresent || ''} onChange={e => update('othersPresent', e.target.value)}
+            sx={{ '& .MuiOutlinedInput-root': { fontSize: 13, '&.Mui-focused fieldset': { borderColor: PURPLE } } }}
+          />
+        </Box>
+      </Box>
+
+      {/* What was found */}
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 700, color: PINK, fontSize: 13, display: 'block', mb: 0.2 }}>
+          What was found?
+        </Typography>
+        <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11, display: 'block', mb: 0.8 }}>
+          i.e. weapons; illegal substances; alcohol; items that could be used for self-harm purposes; extra phones; money
+        </Typography>
+        <TextField
+          multiline rows={10} fullWidth size="small"
+          value={parsed.whatFound || ''} onChange={e => update('whatFound', e.target.value)}
+          sx={{ '& .MuiOutlinedInput-root': { fontSize: 13, '&.Mui-focused fieldset': { borderColor: PURPLE } } }}
+        />
+      </Box>
     </Box>
   )
 }
@@ -119,7 +184,6 @@ function PrimaryDetails({ form, set }) {
 }
 
 function SignSection({ form, set, onSave }) {
-  const KEYWORKERS = ['Admin Accord', 'Key Worker 1', 'Key Worker 2', 'Manager']
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Typography variant="body2" sx={{ color: '#374151', fontSize: 13 }}>
@@ -309,7 +373,7 @@ function RoomCheckModal({ open, checkId, youngPersonId, onClose, onSaved }) {
   function renderSection() {
     switch (activeSection) {
       case 'Primary Details':         return <PrimaryDetails form={form} set={set} />
-      case 'Search Details':          return <TextArea label="Search Details" value={form.searchDetails} onChange={v => set('searchDetails', v)} rows={12} placeholder="Record details of any search undertaken, items found, where found..." />
+      case 'Search Details':          return <SearchDetails form={form} set={set} />
       case 'Actions and Outcome':     return <TextArea label="Actions and Outcome" value={form.actionsAndOutcome} onChange={v => set('actionsAndOutcome', v)} rows={12} placeholder="Describe the actions taken and the outcome of this room check..." />
       case 'Sanctions or Consequences': return <TextArea label="Sanctions or Consequences" value={form.sanctionsOrConsequences} onChange={v => set('sanctionsOrConsequences', v)} rows={12} placeholder="Record any sanctions or consequences applied..." />
       case 'Monitoring':              return <TextArea label="Monitoring" value={form.monitoring} onChange={v => set('monitoring', v)} rows={12} placeholder="Detail any monitoring requirements following this room check..." />
@@ -328,7 +392,7 @@ function RoomCheckModal({ open, checkId, youngPersonId, onClose, onSaved }) {
   const completedSections = NAV_ITEMS.filter(s => {
     const map = {
       'Primary Details': form.reason || form.youngPersonAgreed,
-      'Search Details': form.searchDetails,
+      'Search Details': (() => { try { const p = JSON.parse(form.searchDetails || '{}'); return p.staffPresent || p.othersPresent || p.whatFound } catch { return form.searchDetails } })(),
       'Actions and Outcome': form.actionsAndOutcome,
       'Sanctions or Consequences': form.sanctionsOrConsequences,
       'Monitoring': form.monitoring,
