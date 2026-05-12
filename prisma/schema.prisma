@@ -1,0 +1,521 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id            Int      @id @default(autoincrement())
+  name          String
+  encryptionPin String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users    User[]
+  homes    Home[]
+  areas    Area[]
+  regions  Region[]
+  contacts Contact[]
+}
+
+model Area {
+  id        Int     @id @default(autoincrement())
+  name      String
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+  homes     Home[]
+}
+
+model Region {
+  id        Int     @id @default(autoincrement())
+  name      String
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+  homes     Home[]
+}
+
+model Home {
+  id                 Int       @id @default(autoincrement())
+  name               String
+  companyId          Int
+  areaId             Int?
+  regionId           Int?
+  registrationStatus String?
+  rating             String?
+  lastInspectionDate DateTime?
+  mothballed         Boolean   @default(false)
+  reg40s             Int       @default(0)
+  budgetAmount       Float     @default(0)
+  address            String?
+  phone              String?
+  email              String?
+  serviceType        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  area           Area?           @relation(fields: [areaId], references: [id])
+  region         Region?         @relation(fields: [regionId], references: [id])
+  users          User[]
+  youngPeople    YoungPerson[]
+  beds           Bed[]
+  staff          Staff[]
+  documents      Document[]
+  incidents      Incident[]
+  finance        Finance[]
+  calendarEvents CalendarEvent[]
+  visitorSignIns VisitorSignIn[]
+  medications    Medication[]
+  shiftRecords   ShiftRecord[]
+  trainingRecords TrainingRecord[]
+  contacts       Contact[]
+  roomChecks     RoomCheck[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      Role     @default(STAFF_MEMBER)
+  firstName String?
+  lastName  String?
+  email     String?
+  phone     String?
+  companyId Int
+  homeId    Int?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company          Company   @relation(fields: [companyId], references: [id])
+  home             Home?     @relation(fields: [homeId], references: [id])
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  sessions         Session[]
+  staffProfile     Staff?
+}
+
+enum Role {
+  STAFF_MEMBER
+  YOUNG_PERSON
+  INSPECTOR
+  MANAGER
+  OPERATIONS
+  DIRECTOR
+  ADMIN
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model YoungPerson {
+  id                  Int       @id @default(autoincrement())
+  homeId              Int
+  firstName           String
+  lastName            String
+  admissionDate       DateTime?
+  gender              String?
+  dateOfBirth         DateTime?
+  photoUrl            String?
+  longTermPlan        String?   @db.Text
+  currentSupportNeeds String?   @db.Text
+  placement           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  updatedBy           String?
+
+  home           Home                    @relation(fields: [homeId], references: [id])
+  bed            Bed?
+  documents      Document[]
+  medications    Medication[]
+  placementPlans PlacementPlan[]
+  admission      Admission?
+  matchingRisk   MatchingRiskAssessment?
+  roomChecks     RoomCheck[]
+}
+
+model PlacementPlan {
+  id              Int       @id @default(autoincrement())
+  youngPersonId   Int
+  standard        String?
+  detail          String?
+  details         String?   @db.Text
+  requiredActions String?   @db.Text
+  linkedTarget    String?
+  sort            Int       @default(1)
+  reviewDate      DateTime?
+  status          String    @default("Pending")
+  keyworkerSigned String?
+  signedAt        DateTime?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String?
+
+  youngPerson YoungPerson @relation(fields: [youngPersonId], references: [id])
+}
+
+model Bed {
+  id            Int       @id @default(autoincrement())
+  homeId        Int
+  bedNumber     String
+  status        BedStatus @default(VACANT)
+  youngPersonId Int?      @unique
+  emptyDays     Int       @default(0)
+  registeredAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  home        Home         @relation(fields: [homeId], references: [id])
+  youngPerson YoungPerson? @relation(fields: [youngPersonId], references: [id])
+}
+
+enum BedStatus {
+  OCCUPIED
+  VACANT
+  REGISTERED
+  MOTHBALLED
+}
+
+model Staff {
+  id           Int       @id @default(autoincrement())
+  homeId       Int
+  userId       Int?      @unique
+  firstName    String
+  lastName     String
+  role         String?
+  startDate    DateTime?
+  endDate      DateTime?
+  contractType String?
+  hoursPerWeek Float?
+  active       Boolean   @default(true)
+  dbsNumber    String?
+  dbsExpiry    DateTime?
+  dbsStatus    String?
+  photoUrl     String?
+  email        String?
+  phone        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  home            Home              @relation(fields: [homeId], references: [id])
+  user            User?             @relation(fields: [userId], references: [id])
+  trainingRecords TrainingRecord[]
+  shiftRecords    ShiftRecord[]
+}
+
+model Document {
+  id            Int       @id @default(autoincrement())
+  homeId        Int
+  youngPersonId Int?
+  title         String
+  type          String
+  content       String?   @db.Text
+  fileUrl       String?
+  isCoreDoc     Boolean   @default(false)
+  completedAt   DateTime?
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  home        Home         @relation(fields: [homeId], references: [id])
+  youngPerson YoungPerson? @relation(fields: [youngPersonId], references: [id])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  subject    String?
+  body       String   @db.Text
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  homeId      Int
+  title       String
+  description String?  @db.Text
+  startTime   DateTime
+  endTime     DateTime
+  eventType   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  home Home @relation(fields: [homeId], references: [id])
+}
+
+model Incident {
+  id          Int      @id @default(autoincrement())
+  homeId      Int
+  title       String
+  type        String
+  description String   @db.Text
+  severity    String?
+  occurredAt  DateTime
+  reportedBy  String?
+  status      String   @default("Open")
+  signedOffBy String?
+  signedOffAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  home Home @relation(fields: [homeId], references: [id])
+}
+
+model Finance {
+  id           Int      @id @default(autoincrement())
+  homeId       Int
+  period       String
+  budgetAmount Float
+  spentAmount  Float    @default(0)
+  category     String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  home Home @relation(fields: [homeId], references: [id])
+}
+
+model VisitorSignIn {
+  id          Int       @id @default(autoincrement())
+  homeId      Int
+  visitorName String
+  purpose     String?
+  signInTime  DateTime  @default(now())
+  signOutTime DateTime?
+  createdAt   DateTime  @default(now())
+
+  home Home @relation(fields: [homeId], references: [id])
+}
+
+model Policy {
+  id         Int       @id @default(autoincrement())
+  title      String
+  category   String?
+  content    String    @db.Text
+  version    String?
+  reviewDate DateTime?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Medication {
+  id            Int       @id @default(autoincrement())
+  homeId        Int
+  youngPersonId Int
+  name          String
+  dose          String?
+  frequency     String?
+  prescribedBy  String?
+  startDate     DateTime?
+  endDate       DateTime?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  home        Home        @relation(fields: [homeId], references: [id])
+  youngPerson YoungPerson @relation(fields: [youngPersonId], references: [id])
+  marsRecords MarsRecord[]
+}
+
+model MarsRecord {
+  id             Int      @id @default(autoincrement())
+  medicationId   Int
+  administeredAt DateTime
+  administeredBy String?
+  dose           String?
+  given          Boolean  @default(true)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  medication Medication @relation(fields: [medicationId], references: [id])
+}
+
+model ShiftRecord {
+  id        Int       @id @default(autoincrement())
+  homeId    Int
+  staffId   Int?
+  staffName String
+  clockIn   DateTime
+  clockOut  DateTime?
+  shiftType String?
+  notes     String?   @db.Text
+  createdAt DateTime  @default(now())
+
+  home  Home   @relation(fields: [homeId], references: [id])
+  staff Staff? @relation(fields: [staffId], references: [id])
+}
+
+model TrainingRecord {
+  id             Int       @id @default(autoincrement())
+  homeId         Int
+  staffId        Int
+  trainingName   String
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  certificateUrl String?
+  status         String    @default("Pending")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  home  Home  @relation(fields: [homeId], references: [id])
+  staff Staff @relation(fields: [staffId], references: [id])
+}
+
+model Contact {
+  id           Int      @id @default(autoincrement())
+  homeId       Int?
+  companyId    Int
+  name         String
+  role         String?
+  organisation String?
+  email        String?
+  phone        String?
+  type         String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  home    Home?   @relation(fields: [homeId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model Admission {
+  id                Int      @id @default(autoincrement())
+  youngPersonId     Int      @unique
+  visitsUndertaken  String?  @db.Text
+  consentByWhom     String?  @db.Text
+  youngPersonWishes String?  @db.Text
+  itemsArrivedWith  String?  @db.Text
+  planVisits        String?  @db.Text
+  planDocuments     String?  @db.Text
+  bedroom           String?  @db.Text
+  fireProcedure     String?  @db.Text
+  planOther         String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+
+  youngPerson YoungPerson @relation(fields: [youngPersonId], references: [id])
+}
+
+model RoomCheck {
+  id                      Int       @id @default(autoincrement())
+  youngPersonId           Int
+  homeId                  Int
+  reason                  String?
+  dateOfEvent             DateTime?
+  startTime               String?
+  endTime                 String?
+  youngPersonAgreed       String?   @db.Text
+  policeInvolved          String?   @db.Text
+  searchDetails           String?   @db.Text
+  actionsAndOutcome       String?   @db.Text
+  sanctionsOrConsequences String?   @db.Text
+  monitoring              String?   @db.Text
+  comments                String?   @db.Text
+  signedBy                String?
+  signedAt                DateTime?
+  documents               String?   @db.Text
+  linkedEvents            String?   @db.Text
+  requiredReadings        String?   @db.Text
+  taskNote                String?   @db.Text
+  recordViews             String?   @db.Text
+  unlockHistory           String?   @db.Text
+  locked                  Boolean   @default(false)
+  status                  String    @default("Open")
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  createdBy               String?
+  updatedBy               String?
+
+  youngPerson YoungPerson @relation(fields: [youngPersonId], references: [id])
+  home        Home        @relation(fields: [homeId], references: [id])
+}
+
+model MatchingRiskAssessment {
+  id                    Int       @id @default(autoincrement())
+  youngPersonId         Int       @unique
+  longTermPlan          String?   @db.Text
+  currentSupportNeeds   String?   @db.Text
+  strengthsOfPlacement  String?   @db.Text
+  potentialHome         String?
+  referralFormDate      DateTime?
+  placingAuthority      String?
+  referralFormNotes     String?   @db.Text
+  referralFormDocUrl    String?
+  discussionNotesDate   DateTime?
+  discussionNotes       String?   @db.Text
+  discussionNotesDocUrl String?
+  homeRiskDate          DateTime?
+  homeRiskNotes         String?   @db.Text
+  homeRiskDocUrl        String?
+  otherDate             DateTime?
+  otherNotes            String?   @db.Text
+  otherDocUrl           String?
+  parentsDate           DateTime?
+  parentsNotes          String?   @db.Text
+  parentsDocUrl         String?
+  commissioningDate     DateTime?
+  commissioningNotes    String?   @db.Text
+  commissioningDocUrl   String?
+  socialWorkerDate      DateTime?
+  socialWorkerNotes     String?   @db.Text
+  socialWorkerDocUrl    String?
+  youngPersonDate       DateTime?
+  youngPersonNotes      String?   @db.Text
+  youngPersonDocUrl     String?
+  ypAtHomeDate          DateTime?
+  ypAtHomeNotes         String?   @db.Text
+  ypAtHomeDocUrl        String?
+  teamManagerDate       DateTime?
+  teamManagerNotes      String?   @db.Text
+  teamManagerDocUrl     String?
+  serviceManagerDate    DateTime?
+  serviceManagerNotes   String?   @db.Text
+  serviceManagerDocUrl  String?
+  conversationsDate     DateTime?
+  conversationsNotes    String?   @db.Text
+  conversationsDocUrl   String?
+  matchPdfUrl           String?
+  summary               String?   @db.Text
+  reasonsForDecision    String?   @db.Text
+  currentStatus         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  updatedBy             String?
+
+  youngPerson YoungPerson @relation(fields: [youngPersonId], references: [id])
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  userName    String
+  homeId      Int?
+  companyId   Int?
+  action      String
+  entity      String
+  entityId    String?
+  description String
+  createdAt   DateTime @default(now())
+
+  @@index([homeId])
+  @@index([companyId])
+  @@index([createdAt])
+}
