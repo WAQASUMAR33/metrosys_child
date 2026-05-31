@@ -187,25 +187,29 @@ enum BedStatus {
 }
 
 model Staff {
-  id           Int       @id @default(autoincrement())
-  homeId       Int
-  userId       Int?      @unique
-  firstName    String
-  lastName     String
-  role         String?
-  startDate    DateTime?
-  endDate      DateTime?
-  contractType String?
-  hoursPerWeek Float?
-  active       Boolean   @default(true)
-  dbsNumber    String?
-  dbsExpiry    DateTime?
-  dbsStatus    String?
-  photoUrl     String?
-  email        String?
-  phone        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  homeId          Int
+  userId          Int?      @unique
+  firstName       String
+  lastName        String
+  role            String?
+  tier            Int?      @default(5)
+  webAccess       Boolean   @default(true)
+  hrAccessOnly    Boolean   @default(false)
+  lineManagerId   Int?
+  startDate       DateTime?
+  endDate         DateTime?
+  contractType    String?
+  hoursPerWeek    Float?
+  active          Boolean   @default(true)
+  dbsNumber       String?
+  dbsExpiry       DateTime?
+  dbsStatus       String?
+  photoUrl        String?
+  email           String?
+  phone           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   home            Home              @relation(fields: [homeId], references: [id])
   user            User?             @relation(fields: [userId], references: [id])

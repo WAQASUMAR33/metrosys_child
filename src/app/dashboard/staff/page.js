@@ -1,4 +1,4 @@
-﻿import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import StaffClient from './StaffClient'
@@ -9,7 +9,10 @@ async function getData(homeId, companyId) {
   const [staff, shiftRecords, homes] = await Promise.all([
     prisma.staff.findMany({
       where,
-      include: { home: { select: { name: true } } },
+      include: {
+        home: { select: { name: true } },
+        user: { select: { username: true } },
+      },
       orderBy: { firstName: 'asc' },
     }),
     prisma.shiftRecord.findMany({
@@ -30,6 +33,10 @@ async function getData(homeId, companyId) {
       firstName: s.firstName,
       lastName: s.lastName,
       role: s.role,
+      tier: s.tier ?? 5,
+      webAccess: s.webAccess,
+      hrAccessOnly: s.hrAccessOnly,
+      username: s.user?.username || null,
       contractType: s.contractType,
       hoursPerWeek: s.hoursPerWeek,
       startDate: s.startDate?.toISOString() || null,
@@ -49,12 +56,15 @@ async function getData(homeId, companyId) {
       clockOut: r.clockOut?.toISOString() || null,
       shiftType: r.shiftType,
     })),
-    homes: homes.map(h => ({ id: h.id, name: h.name })),
+    homes: homes.map((h) => ({ id: h.id, name: h.name })),
   }
 }
 
 export default async function StaffPage() {
   const session = await getServerSession(authOptions)
-  const data = await getData(parseInt(session?.user?.homeId), parseInt(session?.user?.companyId))
+  const data = await getData(
+    parseInt(session?.user?.homeId),
+    parseInt(session?.user?.companyId)
+  )
   return <StaffClient data={data} />
 }
