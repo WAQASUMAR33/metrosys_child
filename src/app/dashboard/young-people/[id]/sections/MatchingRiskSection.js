@@ -3,16 +3,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box, Paper, Typography, TextField, Button, IconButton,
-  CircularProgress, Divider, InputAdornment, Select, MenuItem,
-  FormControl,
+  CircularProgress, Divider, Select, MenuItem,
+  FormControl, Tooltip,
 } from '@mui/material'
 import {
-  CalendarMonth, CloudUpload, Save, OpenInNew,
+  CalendarMonth, CloudUpload, Save, OpenInNew, Delete,
 } from '@mui/icons-material'
 
-const PURPLE  = '#6b21a8'
-const PINK    = '#c2185b'
-const LIGHT_P = '#f5f3ff'
+const PURPLE    = '#6b21a8'
+const PINK      = '#c2185b'
+const LIGHT_P   = '#f5f3ff'
+const UPLOAD_API  = 'https://metrosys.rapidtechpro.com/data/uploadImage.php'
+const UPLOADS_BASE = 'https://metrosys.rapidtechpro.com/data/uploads/'
 
 /* ── helpers ─────────────────────────────────────────── */
 function toDateInput(val) {
@@ -66,22 +68,41 @@ function DateInput({ value, onChange }) {
   )
 }
 
-/* Drag-and-drop document upload */
+/* Document upload — uses uploadImage.php via base64 */
 function DocUpload({ value, onChange }) {
   const inputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
   const [drag, setDrag] = useState(false)
 
-  async function upload(file) {
+  function upload(file) {
+    setError('')
     setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (json.url) onChange(json.url)
-    } finally { setUploading(false) }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const res = await fetch(UPLOAD_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: reader.result }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          onChange(`${UPLOADS_BASE}${json.file_url}`)
+        } else {
+          setError(json.error || 'Upload failed')
+        }
+      } catch {
+        setError('Network error')
+      } finally {
+        setUploading(false)
+      }
+    }
+    reader.onerror = () => { setError('Could not read file'); setUploading(false) }
+    reader.readAsDataURL(file)
   }
+
+  const fileName = value ? value.split('/').pop() : ''
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
@@ -96,7 +117,7 @@ function DocUpload({ value, onChange }) {
         sx={{
           border: `1px dashed ${drag ? PURPLE : '#d1d5db'}`,
           borderRadius: 1, minHeight: 90,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5,
           bgcolor: drag ? LIGHT_P : '#fafafa', cursor: 'pointer',
           transition: 'all 0.15s',
           '&:hover': { borderColor: PURPLE, bgcolor: LIGHT_P },
@@ -107,7 +128,7 @@ function DocUpload({ value, onChange }) {
         ) : value ? (
           <Box sx={{ textAlign: 'center', px: 1 }}>
             <Typography variant="caption" sx={{ color: PURPLE, fontSize: 11, wordBreak: 'break-all' }}>
-              {value.split('/').pop()}
+              {fileName}
             </Typography>
           </Box>
         ) : (
@@ -115,21 +136,47 @@ function DocUpload({ value, onChange }) {
             Drag and drop file here
           </Typography>
         )}
-        <input ref={inputRef} type="file" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }} />
+        <input ref={inputRef} type="file"
+          accept="image/jpeg,image/png,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) { e.target.value = ''; upload(f) } }} />
       </Box>
-      <Button
-        variant="outlined" size="small"
-        startIcon={<CloudUpload sx={{ fontSize: 14 }} />}
-        onClick={() => inputRef.current?.click()}
-        sx={{
-          textTransform: 'none', fontSize: 11,
-          borderColor: PINK, color: PINK,
-          '&:hover': { bgcolor: `${PINK}08`, borderColor: PINK },
-        }}
-      >
-        Upload Document
-      </Button>
+
+      {error && (
+        <Typography variant="caption" sx={{ color: '#ef4444', fontSize: 11 }}>{error}</Typography>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Button
+          variant="outlined" size="small"
+          startIcon={uploading ? <CircularProgress size={12} color="inherit" /> : <CloudUpload sx={{ fontSize: 14 }} />}
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          sx={{
+            flex: 1, textTransform: 'none', fontSize: 11,
+            borderColor: PINK, color: PINK,
+            '&:hover': { bgcolor: `${PINK}08`, borderColor: PINK },
+          }}
+        >
+          {uploading ? 'Uploading…' : 'Upload'}
+        </Button>
+        {value && (
+          <>
+            <Tooltip title="View document">
+              <IconButton size="small" component="a" href={value} target="_blank" rel="noopener noreferrer"
+                sx={{ p: 0.5, color: PINK, border: `1px solid ${PINK}`, borderRadius: 1 }}>
+                <OpenInNew sx={{ fontSize: 13 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Remove">
+              <IconButton size="small" onClick={e => { e.stopPropagation(); onChange('') }}
+                sx={{ p: 0.5, color: '#d1d5db', border: '1px solid #e5e7eb', borderRadius: 1, '&:hover': { color: '#ef4444' } }}>
+                <Delete sx={{ fontSize: 13 }} />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
+      </Box>
     </Box>
   )
 }
@@ -186,16 +233,21 @@ export default function MatchingRiskSection({ youngPersonId, ypName }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/young-people/${youngPersonId}/matching-risk`)
-    const json = await res.json()
-    if (json.record) {
-      const r = json.record
-      setData({
-        ...EMPTY,
-        ...Object.fromEntries(
-          Object.entries(r).filter(([k]) => k in EMPTY).map(([k, v]) => [k, v ?? ''])
-        ),
-      })
+    try {
+      const res = await fetch(`/api/young-people/${youngPersonId}/matching-risk`)
+      if (!res.ok) throw new Error(`API error ${res.status}`)
+      const json = await res.json()
+      if (json.record) {
+        const r = json.record
+        setData({
+          ...EMPTY,
+          ...Object.fromEntries(
+            Object.entries(r).filter(([k]) => k in EMPTY).map(([k, v]) => [k, v ?? ''])
+          ),
+        })
+      }
+    } catch {
+      // leave default EMPTY state on error
     }
     setLoading(false)
   }, [youngPersonId])
@@ -204,14 +256,24 @@ export default function MatchingRiskSection({ youngPersonId, ypName }) {
 
   function set(key, val) { setData(d => ({ ...d, [key]: val })) }
 
-  async function uploadMatchPdf(file) {
+  function uploadMatchPdf(file) {
     setUploadingPdf(true)
-    const fd = new FormData(); fd.append('file', file)
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (json.url) set('matchPdfUrl', json.url)
-    } finally { setUploadingPdf(false) }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const res = await fetch(UPLOAD_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: reader.result }),
+        })
+        const json = await res.json()
+        if (json.success) set('matchPdfUrl', `${UPLOADS_BASE}${json.file_url}`)
+      } finally {
+        setUploadingPdf(false)
+      }
+    }
+    reader.onerror = () => setUploadingPdf(false)
+    reader.readAsDataURL(file)
   }
 
   async function save() {
@@ -351,22 +413,49 @@ export default function MatchingRiskSection({ youngPersonId, ypName }) {
             </Typography>
           </Box>
           {/* Match PDF upload */}
-          <Box
-            onClick={() => !uploadingPdf && matchPdfRef.current?.click()}
-            sx={{
-              border: `1px solid #e5e7eb`, borderRadius: 1,
-              minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', bgcolor: '#fafafa',
-              '&:hover': { borderColor: PURPLE, bgcolor: LIGHT_P },
-            }}
-          >
-            {uploadingPdf ? <CircularProgress size={18} sx={{ color: PURPLE }} /> : (
-              <Typography variant="caption" sx={{ color: data.matchPdfUrl ? PURPLE : '#9ca3af', fontSize: 12 }}>
-                {data.matchPdfUrl ? data.matchPdfUrl.split('/').pop() : 'Match PDF'}
-              </Typography>
-            )}
-            <input ref={matchPdfRef} type="file" accept="application/pdf,image/*" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) uploadMatchPdf(f) }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+            <Box
+              onClick={() => !uploadingPdf && matchPdfRef.current?.click()}
+              sx={{
+                border: `1px dashed #d1d5db`, borderRadius: 1,
+                minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', bgcolor: '#fafafa',
+                '&:hover': { borderColor: PURPLE, bgcolor: LIGHT_P },
+              }}
+            >
+              {uploadingPdf ? <CircularProgress size={18} sx={{ color: PURPLE }} /> : (
+                <Typography variant="caption" sx={{ color: data.matchPdfUrl ? PURPLE : '#9ca3af', fontSize: 12, px: 1, textAlign: 'center', wordBreak: 'break-all' }}>
+                  {data.matchPdfUrl ? data.matchPdfUrl.split('/').pop() : 'Click or drag to upload Match PDF'}
+                </Typography>
+              )}
+              <input ref={matchPdfRef} type="file" accept="application/pdf,image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) { e.target.value = ''; uploadMatchPdf(f) } }} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button variant="outlined" size="small"
+                startIcon={uploadingPdf ? <CircularProgress size={12} color="inherit" /> : <CloudUpload sx={{ fontSize: 14 }} />}
+                disabled={uploadingPdf}
+                onClick={() => matchPdfRef.current?.click()}
+                sx={{ flex: 1, textTransform: 'none', fontSize: 11, borderColor: PINK, color: PINK, '&:hover': { bgcolor: `${PINK}08`, borderColor: PINK } }}>
+                {uploadingPdf ? 'Uploading…' : 'Upload PDF'}
+              </Button>
+              {data.matchPdfUrl && (
+                <>
+                  <Tooltip title="View PDF">
+                    <IconButton size="small" component="a" href={data.matchPdfUrl} target="_blank" rel="noopener noreferrer"
+                      sx={{ p: 0.5, color: PINK, border: `1px solid ${PINK}`, borderRadius: 1 }}>
+                      <OpenInNew sx={{ fontSize: 13 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Remove">
+                    <IconButton size="small" onClick={() => set('matchPdfUrl', '')}
+                      sx={{ p: 0.5, color: '#d1d5db', border: '1px solid #e5e7eb', borderRadius: 1, '&:hover': { color: '#ef4444' } }}>
+                      <Delete sx={{ fontSize: 13 }} />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </Box>
           </Box>
         </Box>
       </Paper>
