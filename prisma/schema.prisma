@@ -405,8 +405,9 @@ model Admission {
   visitsUndertaken  String?  @db.Text
   consentByWhom     String?  @db.Text
   youngPersonWishes String?  @db.Text
-  itemsArrivedWith  String?  @db.Text
-  planVisits        String?  @db.Text
+  itemsArrivedWith   String?  @db.Text
+  admissionDocuments String?  @db.Text
+  planVisits         String?  @db.Text
   planDocuments     String?  @db.Text
   bedroom           String?  @db.Text
   fireProcedure     String?  @db.Text

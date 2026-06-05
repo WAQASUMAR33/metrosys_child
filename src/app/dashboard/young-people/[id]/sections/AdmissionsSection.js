@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box, Paper, Typography, TextField, Button, IconButton,
   CircularProgress, Divider, Tooltip,
 } from '@mui/material'
 import {
-  Add, Delete, Save, NoteAdd, Visibility,
-  KeyboardArrowUp, KeyboardArrowDown,
+  Add, Delete, Save, NoteAdd, Visibility, OpenInNew,
+  KeyboardArrowUp, KeyboardArrowDown, AttachFile,
 } from '@mui/icons-material'
+
+const UPLOAD_API = 'https://metrosys.rapidtechpro.com/data/uploadImage.php'
+const UPLOADS_BASE = 'https://metrosys.rapidtechpro.com/data/uploads/'
 
 const PURPLE = '#6b21a8'
 const PINK   = '#c2185b'
@@ -56,6 +59,10 @@ export default function AdmissionsSection({ youngPersonId, admissionDate }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [items, setItems] = useState([EMPTY_ITEM()])
+  const [documents, setDocuments] = useState([])
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,11 +74,54 @@ export default function AdmissionsSection({ youngPersonId, admissionDate }) {
         const parsed = JSON.parse(json.admission.itemsArrivedWith || '[]')
         setItems(parsed.length > 0 ? parsed.map((it, i) => ({ ...it, id: it.id || Date.now() + i })) : [EMPTY_ITEM()])
       } catch { setItems([EMPTY_ITEM()]) }
+      try {
+        const docs = JSON.parse(json.admission.admissionDocuments || '[]')
+        setDocuments(docs)
+      } catch { setDocuments([]) }
     } else {
       setData({})
     }
     setLoading(false)
   }, [youngPersonId])
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploadError('')
+    setUploadingDoc(true)
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result
+        const res = await fetch(UPLOAD_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: base64 }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          setDocuments(prev => [
+            ...prev,
+            { id: Date.now(), fileName: json.file_name, fileUrl: json.file_url, uploadedAt: new Date().toISOString() },
+          ])
+        } else {
+          setUploadError(json.error || 'Upload failed')
+        }
+      } catch {
+        setUploadError('Network error — could not upload file')
+      } finally {
+        setUploadingDoc(false)
+      }
+    }
+    reader.onerror = () => { setUploadError('Failed to read file'); setUploadingDoc(false) }
+    reader.readAsDataURL(file)
+  }
+
+  function removeDocument(id) {
+    setDocuments(prev => prev.filter(d => d.id !== id))
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -96,7 +146,11 @@ export default function AdmissionsSection({ youngPersonId, admissionDate }) {
     await fetch(`/api/young-people/${youngPersonId}/admission`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, itemsArrivedWith: JSON.stringify(items) }),
+      body: JSON.stringify({
+        ...data,
+        itemsArrivedWith: JSON.stringify(items),
+        admissionDocuments: JSON.stringify(documents),
+      }),
     })
     setSaving(false)
     setSaved(true)
@@ -143,27 +197,82 @@ export default function AdmissionsSection({ youngPersonId, admissionDate }) {
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#374151', display: 'block', mb: 1.5 }}>
                 Admissions Documents
               </Typography>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Button
-                  variant="outlined" size="small" startIcon={<NoteAdd sx={{ fontSize: 16 }} />}
+                  variant="outlined" size="small"
+                  startIcon={uploadingDoc ? <CircularProgress size={13} color="inherit" /> : <NoteAdd sx={{ fontSize: 16 }} />}
+                  disabled={uploadingDoc}
+                  onClick={() => fileInputRef.current?.click()}
                   sx={{
                     textTransform: 'none', fontSize: 12, justifyContent: 'flex-start',
                     borderColor: PINK, color: PINK,
                     '&:hover': { bgcolor: `${PINK}08`, borderColor: PINK },
                   }}
                 >
-                  Add Document
+                  {uploadingDoc ? 'Uploading…' : 'Add Document'}
                 </Button>
-                <Button
-                  variant="outlined" size="small" startIcon={<Visibility sx={{ fontSize: 16 }} />}
-                  sx={{
-                    textTransform: 'none', fontSize: 12, justifyContent: 'flex-start',
-                    borderColor: PINK, color: PINK,
-                    '&:hover': { bgcolor: `${PINK}08`, borderColor: PINK },
-                  }}
-                >
-                  View All Documents
-                </Button>
+
+                {uploadError && (
+                  <Typography variant="caption" sx={{ color: '#ef4444', fontSize: 11 }}>
+                    {uploadError}
+                  </Typography>
+                )}
+
+                {/* Uploaded documents list */}
+                {documents.length > 0 && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                    {documents.map(doc => (
+                      <Box
+                        key={doc.id}
+                        sx={{
+                          display: 'flex', alignItems: 'center', gap: 0.5,
+                          bgcolor: '#f9fafb', borderRadius: 1, px: 1, py: 0.5,
+                          border: '1px solid #e5e7eb',
+                        }}
+                      >
+                        <AttachFile sx={{ fontSize: 13, color: '#9ca3af', flexShrink: 0 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{ flex: 1, fontSize: 11, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={doc.fileName}
+                        >
+                          {doc.fileName}
+                        </Typography>
+                        <Tooltip title="View document">
+                          <IconButton
+                            size="small"
+                            component="a"
+                            href={`${UPLOADS_BASE}${doc.fileUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ p: 0.3, color: PINK, '&:hover': { color: '#9c1148' } }}
+                          >
+                            <OpenInNew sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Remove">
+                          <IconButton
+                            size="small"
+                            onClick={() => removeDocument(doc.id)}
+                            sx={{ p: 0.3, color: '#d1d5db', '&:hover': { color: '#ef4444' } }}
+                          >
+                            <Delete sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </Box>
             </Paper>
 
