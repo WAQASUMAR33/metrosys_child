@@ -66,19 +66,24 @@ export default function AdmissionsSection({ youngPersonId, admissionDate }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/young-people/${youngPersonId}/admission`)
-    const json = await res.json()
-    if (json.admission) {
-      setData(json.admission)
-      try {
-        const parsed = JSON.parse(json.admission.itemsArrivedWith || '[]')
-        setItems(parsed.length > 0 ? parsed.map((it, i) => ({ ...it, id: it.id || Date.now() + i })) : [EMPTY_ITEM()])
-      } catch { setItems([EMPTY_ITEM()]) }
-      try {
-        const docs = JSON.parse(json.admission.admissionDocuments || '[]')
-        setDocuments(docs)
-      } catch { setDocuments([]) }
-    } else {
+    try {
+      const res = await fetch(`/api/young-people/${youngPersonId}/admission`)
+      if (!res.ok) throw new Error(`API error ${res.status}`)
+      const json = await res.json()
+      if (json.admission) {
+        setData(json.admission)
+        try {
+          const parsed = JSON.parse(json.admission.itemsArrivedWith || '[]')
+          setItems(parsed.length > 0 ? parsed.map((it, i) => ({ ...it, id: it.id || Date.now() + i })) : [EMPTY_ITEM()])
+        } catch { setItems([EMPTY_ITEM()]) }
+        try {
+          const docs = JSON.parse(json.admission.admissionDocuments || '[]')
+          setDocuments(Array.isArray(docs) ? docs : [])
+        } catch { setDocuments([]) }
+      } else {
+        setData({})
+      }
+    } catch {
       setData({})
     }
     setLoading(false)
