@@ -174,38 +174,35 @@ function AddStaffModal({ onClose, onSaved, homes, staffList }) {
   const labelClass = 'text-sm text-gray-700 w-36 flex-shrink-0'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#f3f4f6' }}>
-      {/* Top bar */}
-      <div
-        className="flex items-center justify-end gap-3 px-6 py-2.5 flex-shrink-0"
-        style={{ background: 'linear-gradient(135deg, #1e0a3c, #6b21a8)' }}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded text-sm font-semibold text-white"
-          style={{ background: '#f59e0b' }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Top bar */}
+        <div
+          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #1e0a3c, #6b21a8)' }}
         >
-          Cancel ✕
-        </button>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <User size={18} /> Add New Staff
+          </h2>
 
-        <div className="flex items-center gap-2 rounded px-3 py-1.5" style={{ background: 'rgba(255,255,255,0.12)' }}>
-          <span className="text-white text-sm font-medium">Active</span>
-          <FormToggle checked={form.active} onChange={v => set('active', v)} />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded px-3 py-1.5" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              <span className="text-white text-sm font-medium">Active</span>
+              <FormToggle checked={form.active} onChange={v => set('active', v)} />
+            </div>
+            
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded text-sm font-semibold text-white border"
-          style={{ borderColor: 'rgba(255,255,255,0.3)' }}
-        >
-          <ChevronLeft size={14} /> Back
-        </button>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-white">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto bg-gray-50/50">
         <form onSubmit={handleSubmit}>
           {error && (
             <div className="mx-8 mt-4 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
@@ -427,6 +424,7 @@ function AddStaffModal({ onClose, onSaved, homes, staffList }) {
           onClose={() => setShowPinModal(false)}
         />
       )}
+      </div>
     </div>
   )
 }
